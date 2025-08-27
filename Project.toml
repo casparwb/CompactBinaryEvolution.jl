@@ -1,0 +1,13 @@
+name = "CompactBinaryEvolution"
+uuid = "c86d27a9-da79-4fe6-a8db-fef0caf74e81"
+authors = ["Caspar William Bruenech <c.w.bruenech@proton.me> and contributors"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1.6.7"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
