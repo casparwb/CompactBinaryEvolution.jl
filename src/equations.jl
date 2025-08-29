@@ -267,3 +267,39 @@ function get_orbital_evolution_model(binary::CompactBinary, ::BarkerOConnell{NoB
 
     return f!
 end
+
+
+function get_orbital_evolution_model(binary::CompactBinary, ::FumagelliModel)
+
+
+    M = m1 + m2
+    η = m2/m1
+    β = η/c^5*M^3/G^3
+    sqrt_M = √M
+    sqrt_G = √G
+    function f_Fumagalli_et_al_2025!(du, u, p, t)
+        p = u[1]
+        e = u[2]
+        f = u[3]
+        # (e < zero(e) || e >= one(e) || a < zero(a)) && return nothing
+        e² = e^2
+
+
+        cosf = cos(f)
+        cos2f = cos(2f)
+        ecosf = e*cosf
+        one_plus_ecosf³ = (1 + ecosf)^3
+        dp_dt = -8/5*β/p^3*one_plus_ecosf³*(9 + 12ecosf + e²*(1 + 3cos2f))
+        de_dt = -2/15*β/p^4*one_plus_ecosf³*(72cosf + e*(116 + 52cos2f) + e²*(109cosf + 11cos(3f)) + e^3*(6 + 18cos2f))
+        df_dt = sqrt_G*sqrt_M/(sqrt(p)^3)*(1 + ecosf)^2
+
+        du[1] = dp_dt
+        du[2] = de_dt
+        du[3] = df_dt
+
+        nothing
+    end
+
+        p0 = a0*(1 - e0^2)
+    u0 = [p0, e0, f0]
+end
