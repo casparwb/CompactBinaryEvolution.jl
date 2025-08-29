@@ -107,7 +107,7 @@ struct CompactBinarySolution{tT, aT, eT, evT, lT, sT}
             nothing, nothing
         end
 
-        L = u[:,:,end] .* unit_spin
+        L = u[:,end,:] .* unit_spin
 
         a = u[1,1,:] .* unit_length
         e_vec = u[:,2,:]
