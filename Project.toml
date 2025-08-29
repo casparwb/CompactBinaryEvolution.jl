@@ -1,7 +1,7 @@
 name = "CompactBinaryEvolution"
 uuid = "c86d27a9-da79-4fe6-a8db-fef0caf74e81"
-version = "1.0.0-DEV"
 authors = ["Caspar William Bruenech <c.w.bruenech@proton.me> and contributors"]
+version = "0.0.1"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -13,7 +13,7 @@ Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 UnitfulAstro = "6112ee07-acf9-5e0f-b108-d242c714bf9f"
 
 [compat]
-LinearAlgebra = "1.12.0"
+LinearAlgebra = "1.11.0"
 OrdinaryDiffEqTsit5 = "1.5.0"
 RecursiveArrayTools = "3.37.1"
 SciMLBase = "2.112.0"
