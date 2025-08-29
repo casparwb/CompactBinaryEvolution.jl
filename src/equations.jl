@@ -49,7 +49,6 @@ function get_orbital_evolution_model(binary::CompactBinary, ::PetersModel)
         de_dt_GW = -div_304_15*G³m₁m₂Mc⁻⁵/(a^4*one_min_e²^2.5)*(1 + div_121_304*e²)*e
         
         dL_dt_GW = -Γ/a^3.5*(1 + 0.875*e²)/one_min_e²^2 * L̂
-        println(de_dt_GW)
 
         du[1,1] = da_dt_GW
         du[1,2] = de_dt_GW
