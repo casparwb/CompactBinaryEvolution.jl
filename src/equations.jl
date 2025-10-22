@@ -271,35 +271,40 @@ end
 
 function get_orbital_evolution_model(binary::CompactBinary, ::FumagelliModel)
 
+    m1, m2 = binary.m1, binary.m2
+    μ = (m2*m1)/(m1 + m2)
+    η = μ/(m1 + m2)
 
-    M = m1 + m2
-    η = m2/m1
-    β = η/c^5*M^3/G^3
-    sqrt_M = √M
-    sqrt_G = √G
-    function f_Fumagalli_et_al_2025!(du, u, p, t)
-        p = u[1]
-        e = u[2]
-        f = u[3]
+    M = ustrip(unit_mass, m1 + m2)
+    sqrt_M = sqrt(M)
+    sqrt_G = sqrt(UNITLESS_G)
+
+    β = M^3*UNITLESS_G^3/UNITLESS_c^5*η
+    function f!(du, u, params, t)
+        p̄, ē, f̄, ω_bar = u
         # (e < zero(e) || e >= one(e) || a < zero(a)) && return nothing
-        e² = e^2
+        ē² = ē^2
+        # p̄³ = p̄^3
 
-
-        cosf = cos(f)
-        cos2f = cos(2f)
-        ecosf = e*cosf
+        cosf = cos(f̄)
+        cos2f = cos(2f̄)
+        ecosf = ē*cosf
         one_plus_ecosf³ = (1 + ecosf)^3
-        dp_dt = -8/5*β/p^3*one_plus_ecosf³*(9 + 12ecosf + e²*(1 + 3cos2f))
-        de_dt = -2/15*β/p^4*one_plus_ecosf³*(72cosf + e*(116 + 52cos2f) + e²*(109cosf + 11cos(3f)) + e^3*(6 + 18cos2f))
-        df_dt = sqrt_G*sqrt_M/(sqrt(p)^3)*(1 + ecosf)^2
+
+        dp_dt = -8/5*β/p̄^3*one_plus_ecosf³*(8 + 12ecosf + ē²*(1 + 3cos2f))
+        de_dt = -2/15*β/p̄^4*one_plus_ecosf³*(72cosf + ē*(116 + 52cos2f) + ē²*(109cosf + 11cos(3f̄)) + ē^3*(6 + 18cos2f))
+        df_dt = sqrt_G*sqrt_M/(sqrt(p̄)^3)*(1 + ecosf)^2
 
         du[1] = dp_dt
         du[2] = de_dt
         du[3] = df_dt
+        du[4] = 0.0
 
         nothing
     end
 
-        p0 = a0*(1 - e0^2)
-    u0 = [p0, e0, f0]
+    # p0 = a0*(1 - e0^2)
+    # u0 = [p0, e0, f0]
+
+    return f!
 end
