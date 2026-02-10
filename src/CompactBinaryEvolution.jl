@@ -30,8 +30,6 @@ const div_73_24 = 73/24
 const div_304_15 = 304/15
 const div_37_96 = 37/96
 
-const evolve = do_orbital_evolution
-
 abstract type OrbitalEvolutionModel end
 abstract type SpinEvolutionModel end
 
@@ -162,8 +160,8 @@ function CompactBinarySolution(sol, binary, ::FumagelliModel; α=-1, β=0)
     # return sol
     as = zeros(typeof(1.0u"Rsun"), length(sol.t))
     es = zeros(Float64, length(sol.t))
-    fs = zeros(typeof(1.0u"rad"), length(sol.t))
-    ωs = similar(fs)
+    # fs = zeros(typeof(1.0u"rad"), length(sol.t))
+    # ωs = similar(fs)
     ts = zeros(typeof(1.0u"yr"), length(sol.t))
     
     η = (binary.m1*binary.m2)/(binary.m1 + binary.m2)^2
@@ -177,9 +175,9 @@ function CompactBinarySolution(sol, binary, ::FumagelliModel; α=-1, β=0)
     G² = G^2
     for i in eachindex(sol.t)
         u = sol.u[i]
-        p̄, ē, f̄, ω_bar  = u
+        p̄, ē, f̄  = u
         p̄ *= unit_length
-        f̄, ω_bar = f̄*u"rad", ω_bar*u"rad"
+        f̄= f̄*u"rad"
         f = f̄
         t̄ = sol.t[i]*unit_time
 
@@ -192,10 +190,10 @@ function CompactBinarySolution(sol, binary, ::FumagelliModel; α=-1, β=0)
         δē = -4/5*sqrt_G⁵*sqrt(M^5/p̄^5)*η*(1 + ē*cosf)^2*(4 + 4ē*(2 + α)*cosf +
                 ē^2*(4 + 4α - β + β*cos2f))*sin(f)
 
-        δ̄ω = sqrt_G⁵/180*sqrt(M^5/p̄^5)*η/ē*(2304*cosf + 96*ē*(23 + 3α)*cos2f + 
-             ē^2*(12*(206 - 24α + 18β)*cosf + 8*(127 + 36α + 9β)*cos3f) + 
-             ē^3*(12*(65 + 12β)*cos2f + 3*(59 + 24α + 24β)*cos(4f)) +
-             ē^4*(36*(6 + β)*cosf + 6*(12 + 7β)*cos3f + 18β*cosf))
+        # δ̄ω = sqrt_G⁵/180*sqrt(M^5/p̄^5)*η/ē*(2304*cosf + 96*ē*(23 + 3α)*cos2f + 
+        #      ē^2*(12*(206 - 24α + 18β)*cosf + 8*(127 + 36α + 9β)*cos3f) + 
+        #      ē^3*(12*(65 + 12β)*cos2f + 3*(59 + 24α + 24β)*cos(4f)) +
+        #      ē^4*(36*(6 + β)*cosf + 6*(12 + 7β)*cos3f + 18β*cosf))
 
         δt̄ = 2G²/15*M^2/p̄*η/ē^2*(12*log10(1 + ē*cosf) + 84*ē*cosf +
                 ē^2*((35 + 12α)*cos2f*12*log10(1 + ē*cosf) +
@@ -204,17 +202,17 @@ function CompactBinarySolution(sol, binary, ::FumagelliModel; α=-1, β=0)
         p = y(p̄, δp̄)
         e = y(ē, δē)
         t = y(t̄, δt̄)
-        ω = y(ω_bar, δ̄ω)
+        # ω = y(ω_bar, δ̄ω)
 
         as[i] = (p/(1 - e))
         es[i] = e
-        fs[i] = f
-        ωs[i] = ω
+        # fs[i] = f
+        # ωs[i] = ω
         ts[i] = t
     end
         
 
-    return CompactBinarySolution(binary, ts, as, es, nothing, nothing, nothing, nothing, fs, ωs)
+    return CompactBinarySolution(binary, ts, as, es, nothing, nothing, nothing, nothing, nothing, nothing)
 end
 
 function Base.show(io::IO, sol::CompactBinarySolution)
@@ -413,6 +411,7 @@ function do_orbital_evolution(bin::CompactBinary, model;
                               save_every=Inf,
                               peak_frequency_stop=10.0u"Hz",
                               a_min_rg=10, verbose=false,
+                              postprocess=true,
                               args...)
 
 
@@ -427,40 +426,6 @@ function do_orbital_evolution(bin::CompactBinary, model;
                          :a_min_rg => a_min_rg, 
                          :verbose => verbose)
 
-    # GM = UNITLESS_G*ustrip(Float64, u"Msun", bin.m1 + bin.m2)
-    # sqrt_GM_div_π = sqrt(GM)/π
-    
-    # min_a = a_min_rg*GM/UNITLESS_c^2
-    # peak_frequency_stop = ustrip(Float64, unit_time^-1, peak_frequency_stop)
-    # function condition_merger!(out, u, t, integrator) 
-
-    #         a = u[1, 1]
-    #         e = norm(SA[u[1, 2], u[2, 2], u[3, 2]])
-    #         f_GW = peak_f_GW(sqrt_GM_div_π, a, e)
-    #         out_freq = f_GW - peak_frequency_stop
-    #         out_a = a - min_a
-    #         out[1] = out_freq
-    #         out[2] = out_a
-
-    #         nothing
-    #     end        
-        
-    # function affect_merger!(integrator, idx) 
-    #     if idx == 1
-    #         verbose && println("Merger! (fGW)")
-    #         terminate!(integrator)
-    #     elseif idx == 2
-    #         verbose && println("Merger! (a)")
-    #         terminate!(integrator)
-    #     end
-    #     nothing
-    # end
-
-    # cb_merger = VectorContinuousCallback(condition_merger!, affect_merger!, 2, 
-    #                                     save_positions=(false, false), 
-    #                                     rootfind=RightRootFind,
-    #                                     interp_points=100)
-
     callbacks = setup_callbacks(bin, model; callback_args...)
     abstol = get(args, :abstol, 1e-6)
     reltol = get(args, :reltol, 1e-6)
@@ -469,6 +434,15 @@ function do_orbital_evolution(bin::CompactBinary, model;
     # save_everystep = get(args, :save_everystep, !saving_callback)
     save_everystep = !haskey(args, :saveat)
     save_everystep = !callback_args[:saving_callback]
+    # save_idxs = if haskey(args, :save_idxs)
+    #     args[:save_idxs]
+    # else
+    #     if model isa FumagelliModel
+    #         [1, 2, 3]
+    #     else
+    #         collect(eachindex(u0))
+    #     end
+    # end
 
     ode_func! = get_orbital_evolution_model(bin, model)
     prob = ODEProblem(ode_func!, u0, tspan)
@@ -480,9 +454,10 @@ function do_orbital_evolution(bin::CompactBinary, model;
                            dense=dense,
                            args...)
 
-    return CompactBinarySolution(sol, bin, model)
+    return postprocess ? CompactBinarySolution(sol, bin, model) : sol
 end
 
+const evolve = do_orbital_evolution
 
 
 end # end module
