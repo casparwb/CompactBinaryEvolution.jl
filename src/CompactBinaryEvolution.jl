@@ -1,7 +1,7 @@
 module CompactBinaryEvolution
 
 export CompactBinary, do_orbital_evolution, newtonian_angular_momentum, evolve
-export PetersModel, PetersWithPrecession, FumagelliModel, BarkerOConnell, BackReaction, NoBackReaction
+export PetersModel, PetersWithPrecession, FumagalliModel, BarkerOConnell, BackReaction, NoBackReaction
 
 include("units.jl")
 
@@ -35,7 +35,7 @@ abstract type SpinEvolutionModel end
 
 struct PetersModel          <: OrbitalEvolutionModel end
 struct PetersWithPrecession <: OrbitalEvolutionModel end
-struct FumagelliModel       <: OrbitalEvolutionModel end
+struct FumagalliModel       <: OrbitalEvolutionModel end
 struct BarkerOConnell{T}    <: SpinEvolutionModel backreaction::T end
 struct BackReaction end
 struct NoBackReaction end
@@ -62,12 +62,15 @@ struct CompactBinary{tT, mT, aT, eT, lT, ST}
     L::lT
     S1::ST
     S2::ST
+    f::eT
+    w::eT
 
     function CompactBinary(;m1::Unitful.Mass, m2::Unitful.Mass, 
                             a::Unitful.Length, e, 
                             time=0.0u"yr",
                             L = nothing,
-                            S1=nothing, S2=nothing)
+                            S1=nothing, S2=nothing,
+                            f0 = -π, w0= π)
         tT = typeof(time)
         mT = typeof(m1)
         aT = typeof(a)
@@ -83,7 +86,7 @@ struct CompactBinary{tT, mT, aT, eT, lT, ST}
         end
 
         lT = typeof(L)
-        return new{tT, mT, aT, eT, lT, sT}(time, m1, m2, a, e, L, S1, S2)
+        return new{tT, mT, aT, eT, lT, sT}(time, m1, m2, a, e, L, S1, S2, f0, w0)
     end
 end
 
@@ -156,7 +159,7 @@ function CompactBinarySolution(sol, binary, ::SpinEvolutionModel)
     return CompactBinarySolution(binary, time, a, e, e_vec, L, S1, S2, nothing, nothing)
 end
 
-function CompactBinarySolution(sol, binary, ::FumagelliModel; α=-1, β=0)
+function CompactBinarySolution(sol, binary, ::FumagalliModel; α=-1, β=0)
     # return sol
     as = zeros(typeof(1.0u"Rsun"), length(sol.t))
     es = zeros(Float64, length(sol.t))
@@ -181,14 +184,14 @@ function CompactBinarySolution(sol, binary, ::FumagelliModel; α=-1, β=0)
         f = f̄
         t̄ = sol.t[i]*unit_time
 
-        cosf = cos(f)
+        sinf, cosf = sincos(f)
         cos2f = cos(2f)
         cos3f = cos(3f)
 
-        δp̄ = -16/5*sqrt_G⁵*sqrt(M^5/p̄^3)*η*(1 + ē*cosf)^2*ē*α*sin(f)
+        δp̄ = -16/5*sqrt_G⁵*sqrt(M^5/p̄^3)*η*(1 + ē*cosf)^2*ē*α*sinf
 
         δē = -4/5*sqrt_G⁵*sqrt(M^5/p̄^5)*η*(1 + ē*cosf)^2*(4 + 4ē*(2 + α)*cosf +
-                ē^2*(4 + 4α - β + β*cos2f))*sin(f)
+                ē^2*(4 + 4α - β + β*cos2f))*sinf
 
         # δ̄ω = sqrt_G⁵/180*sqrt(M^5/p̄^5)*η/ē*(2304*cosf + 96*ē*(23 + 3α)*cos2f + 
         #      ē^2*(12*(206 - 24α + 18β)*cosf + 8*(127 + 36α + 9β)*cos3f) + 
@@ -196,15 +199,15 @@ function CompactBinarySolution(sol, binary, ::FumagelliModel; α=-1, β=0)
         #      ē^4*(36*(6 + β)*cosf + 6*(12 + 7β)*cos3f + 18β*cosf))
 
         δt̄ = 2G²/15*M^2/p̄*η/ē^2*(12*log10(1 + ē*cosf) + 84*ē*cosf +
-                ē^2*((35 + 12α)*cos2f*12*log10(1 + ē*cosf) +
-                ē^3*((-12 + 12α - 9β)*cosf + 3β*cos3f)))
+                ē^2*((35 + 12α)*cos2f - 12*log10(1 + ē*cosf)) +
+                ē^3*((-12 + 12α - 9β)*cosf + 3β*cos3f))
 
         p = y(p̄, δp̄)
         e = y(ē, δē)
         t = y(t̄, δt̄)
         # ω = y(ω_bar, δ̄ω)
 
-        as[i] = (p/(1 - e))
+        as[i] = (p/(1 - e^2))
         es[i] = e
         # fs[i] = f
         # ωs[i] = ω
@@ -223,9 +226,9 @@ function Base.show(io::IO, sol::CompactBinarySolution)
 
     println("CompactBinarySolution: ")
     println("  N: ", N)
-    println("  Final a [R⊙]: ", a_final)
+    println("  Final a: ", a_final)
     println("  Final e: ", e_final)
-    println("  Final t [yr]: ", t_final)
+    println("  Final t: ", t_final)
 end
 
 include("equations.jl")
@@ -260,15 +263,47 @@ function get_u0(bin, ::SpinEvolutionModel)
     return [a0 e0 S1 S2 L]
 end
 
-function get_u0(bin, ::FumagelliModel)
-    a = ustrip(unit_length, bin.a)
-    a0 = a
+function get_u0(bin, ::FumagalliModel)
+    a0 = ustrip(unit_length, bin.a)
     e0 = bin.e
-    
     p0 = a0*(1 - bin.e^2)
-    f0 = 0.0
-    ω0 = 0.0
-    return [p0, e0, f0, ω0]
+    f0 = bin.f
+    w0 = bin.w
+    
+
+    # c⁻⁵ = 1/UNITLESS_c^5
+    # sqrt_G⁵ = sqrt(UNITLESS_G^5)
+    # G² = UNITLESS_G^2
+
+    # M = bin.m1 + bin.m2
+    # η = (bin.m1*bin.m2)/M^2
+
+    # ȳ(y, δȳ) = y - c⁻⁵*δȳ
+
+    # α=-1
+    # β=0
+    # sinf, cosf = sincos(f0)
+    # cos2f = cos(2*f0)
+    # δp̄ = -16/5*sqrt_G⁵*sqrt(M^5/p̄^3)*η*(1 + ē*cosf)^2*ē*α*sinf
+
+    # δē = -4/5*sqrt_G⁵*sqrt(M^5/p̄^5)*η*(1 + ē*cosf)^2*(4 + 4ē*(2 + α)*cosf +
+    #         ē^2*(4 + 4α - β + β*cos2f))*sinf
+
+    # # δ̄ω = sqrt_G⁵/180*sqrt(M^5/p̄^5)*η/ē*(2304*cosf + 96*ē*(23 + 3α)*cos2f + 
+    # #      ē^2*(12*(206 - 24α + 18β)*cosf + 8*(127 + 36α + 9β)*cos3f) + 
+    # #      ē^3*(12*(65 + 12β)*cos2f + 3*(59 + 24α + 24β)*cos(4f)) +
+    # #      ē^4*(36*(6 + β)*cosf + 6*(12 + 7β)*cos3f + 18β*cosf))
+
+    # # δt̄ = 2G²/15*M^2/p̄*η/ē^2*(12*log10(1 + ē*cosf) + 84*ē*cosf +
+    # #         ē^2*((35 + 12α)*cos2f - 12*log10(1 + ē*cosf)) +
+    # #         ē^3*((-12 + 12α - 9β)*cosf + 3β*cos3f))
+
+    # p0 = ȳ(p̄, δp̄)
+    # e0 = ȳ(ē, δē)
+    # # t0 = y(t̄, δt̄)
+    
+    # ω0 = 0.0
+    return [p0, e0, f0, w0]
 end
 
 
@@ -342,7 +377,7 @@ function setup_callbacks(bin, model; merger_callback=true, saving_callback=false
     end
 end
 
-function setup_callbacks(bin, ::FumagelliModel; merger_callback=true, saving_callback=false, save_every=1,
+function setup_callbacks(bin, ::FumagalliModel; merger_callback=true, saving_callback=false, save_every=1,
                               peak_frequency_stop=10.0u"Hz",
                               a_min_rg=10, verbose=false)
 
@@ -357,7 +392,7 @@ function setup_callbacks(bin, ::FumagelliModel; merger_callback=true, saving_cal
         function condition_merger!(out, u, t, integrator) 
 
                 p, e = u[1], u[2]
-                a = p/(1 - e)
+                a = p/(1 - e^2)
                 f_GW = peak_f_GW(sqrt_GM_div_π, a, e)
                 out_freq = f_GW - peak_frequency_stop
                 out_a = a - min_a
@@ -437,7 +472,7 @@ function do_orbital_evolution(bin::CompactBinary, model;
     # save_idxs = if haskey(args, :save_idxs)
     #     args[:save_idxs]
     # else
-    #     if model isa FumagelliModel
+    #     if model isa FumagalliModel
     #         [1, 2, 3]
     #     else
     #         collect(eachindex(u0))

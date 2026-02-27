@@ -269,22 +269,23 @@ function get_orbital_evolution_model(binary::CompactBinary, ::BarkerOConnell{NoB
 end
 
 
-function get_orbital_evolution_model(binary::CompactBinary, ::FumagelliModel)
+function get_orbital_evolution_model(binary::CompactBinary, ::FumagalliModel)
 
-    m1, m2 = binary.m1, binary.m2
-    μ = (m2*m1)/(m1 + m2)
-    η = μ/(m1 + m2)
+    m1, m2 = ustrip.(unit_mass, (binary.m1, binary.m2))
+    M = m1 + m2
+    μ = (m2*m1)/M
+    η = μ/M
 
-    M = ustrip(unit_mass, m1 + m2)
     sqrt_M = sqrt(M)
     sqrt_G = sqrt(UNITLESS_G)
 
     β = M^3*UNITLESS_G^3/UNITLESS_c^5*η
     function f!(du, u, params, t)
         p̄, ē, f̄, ω_bar = u
-        # (e < zero(e) || e >= one(e) || a < zero(a)) && return nothing
+        
+        # println(p̄)
+        # (ē < zero(ē) || ē >= one(ē) || p̄ < zero(p̄)) && return nothing
         ē² = ē^2
-        # p̄³ = p̄^3
 
         cosf = cos(f̄)
         cos2f = cos(2f̄)
@@ -293,7 +294,9 @@ function get_orbital_evolution_model(binary::CompactBinary, ::FumagelliModel)
 
         dp_dt = -8/5*β/p̄^3*one_plus_ecosf³*(8 + 12ecosf + ē²*(1 + 3cos2f))
         de_dt = -2/15*β/p̄^4*one_plus_ecosf³*(72cosf + ē*(116 + 52cos2f) + ē²*(109cosf + 11cos(3f̄)) + ē^3*(6 + 18cos2f))
-        df_dt = sqrt_G*sqrt_M/(sqrt(p̄)^3)*(1 + ecosf)^2
+        df_dt = sqrt_G*sqrt_M/sqrt(p̄^3)*(1 + ecosf)^2
+
+        # println(ē, " ", (72cosf + ē*(116 + 52cos2f) + ē²*(109cosf + 11cos(3f̄)) + ē^3*(6 + 18cos2f)))
 
         du[1] = dp_dt
         du[2] = de_dt
